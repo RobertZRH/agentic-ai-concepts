@@ -4,19 +4,22 @@ import logging
 import uuid
 from typing import Optional
 
-from langchain_openai import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from src.config import (
+    LLM_PROVIDER,
     AZURE_OPENAI_ENDPOINT,
     AZURE_OPENAI_API_KEY,
     AZURE_OPENAI_DEPLOYMENT,
     AZURE_OPENAI_API_VERSION,
+    GITHUB_TOKEN,
+    GITHUB_MODELS_ENDPOINT,
+    GITHUB_MODELS_DEPLOYMENT,
 )
 
 logger = logging.getLogger(__name__)
 
 _llm_instance = None
-
 
 def _get_llm():
     global _llm_instance

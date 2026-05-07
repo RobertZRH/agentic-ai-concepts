@@ -59,14 +59,14 @@ def make_demo_llm():
         idx = call_count[0]
         call_count[0] += 1
         resp = MagicMock()
-        # Alternate between summarizer / bias / moderator style responses
+        # Use specific phrases unique to each agent's system prompt
         system_text = messages[0].content.lower() if messages else ""
-        if "summarize" in system_text or "summary" in system_text:
+        if "neutral summarizer" in system_text or "summarize the following" in system_text:
             human_text = messages[1].content if len(messages) > 1 else ""
             topic = human_text[:40].replace("\n", " ") if human_text else "this topic"
             lean = "left" if idx % 2 == 0 else "right"
             resp.content = SUMMARIZER_TEMPLATE.format(topic=topic, lean=lean)
-        elif "bias" in system_text or "lean" in system_text:
+        elif "political framing" in system_text or "lean_score" in system_text:
             score = round((-0.6 + (idx * 0.3)) % 1.4 - 0.7, 2)  # vary scores
             resp.content = json.dumps({
                 "lean_score": score,
