@@ -1,13 +1,17 @@
 """BiasAnalyzerAgent — scores political lean and extracts key claims per article."""
 import json
 import logging
-from langchain_openai import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from src.config import (
+    LLM_PROVIDER,
     AZURE_OPENAI_ENDPOINT,
     AZURE_OPENAI_API_KEY,
     AZURE_OPENAI_DEPLOYMENT,
     AZURE_OPENAI_API_VERSION,
+    GITHUB_TOKEN,
+    GITHUB_MODELS_ENDPOINT,
+    GITHUB_MODELS_DEPLOYMENT,
 )
 
 logger = logging.getLogger(__name__)
@@ -18,13 +22,21 @@ _llm_instance = None
 def _get_llm():
     global _llm_instance
     if _llm_instance is None:
-        _llm_instance = AzureChatOpenAI(
-            azure_endpoint=AZURE_OPENAI_ENDPOINT,
-            api_key=AZURE_OPENAI_API_KEY,
-            azure_deployment=AZURE_OPENAI_DEPLOYMENT,
-            api_version=AZURE_OPENAI_API_VERSION,
-            temperature=0,
-        )
+        if LLM_PROVIDER == "github":
+            _llm_instance = ChatOpenAI(
+                base_url=GITHUB_MODELS_ENDPOINT,
+                api_key=GITHUB_TOKEN,
+                model=GITHUB_MODELS_DEPLOYMENT,
+                temperature=0,
+            )
+        else:
+            _llm_instance = AzureChatOpenAI(
+                azure_endpoint=AZURE_OPENAI_ENDPOINT,
+                api_key=AZURE_OPENAI_API_KEY,
+                azure_deployment=AZURE_OPENAI_DEPLOYMENT,
+                api_version=AZURE_OPENAI_API_VERSION,
+                temperature=0,
+            )
     return _llm_instance
 
 

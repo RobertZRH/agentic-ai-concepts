@@ -20,9 +20,20 @@ RIGHT_SOURCES: list[tuple[str, str]] = [
     ("Breitbart", "http://feeds.feedburner.com/breitbart"),
 ]
 
-# ── Azure OpenAI ───────────────────────────────────────────────────────────────
+# ── LLM provider ──────────────────────────────────────────────────────────────
+# Set LLM_PROVIDER=github to use GitHub Models instead of Azure OpenAI.
+# GitHub Models endpoint: https://models.inference.ai.azure.com
+# Requires: GITHUB_TOKEN with models:read permission.
 
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "azure").lower()  # "azure" | "github"
+
+# Azure OpenAI
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "")
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY", "")
 AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-55")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
+
+# GitHub Models
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+GITHUB_MODELS_ENDPOINT = "https://models.inference.ai.azure.com"
+GITHUB_MODELS_DEPLOYMENT = os.getenv("GITHUB_MODELS_DEPLOYMENT", "openai/gpt-4.1")
