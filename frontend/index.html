@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Balanced News Digest</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --left:  #2563eb;
+      --right: #dc2626;
+      --bg:    #f8fafc;
+      --card:  #ffffff;
+      --border:#e2e8f0;
+      --text:  #1e293b;
+      --muted: #64748b;
+    }
+
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    /* ── Header ── */
+    header {
+      background: var(--text);
+      color: #fff;
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+    header span { opacity: 0.55; font-size: 0.9rem; margin-left: auto; }
+
+    /* ── Search bar ── */
+    .search-wrap {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 1.25rem 2rem;
+    }
+    .search-row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      max-width: 720px;
+    }
+    .search-row input[type="text"] {
+      flex: 1;
+      padding: 0.6rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      transition: border 0.15s;
+    }
+    .search-row input[type="text"]:focus { border-color: var(--left); }
+    .search-row label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .search-row button {
+      padding: 0.6rem 1.4rem;
+      background: var(--text);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .search-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .search-row button:hover:not(:disabled) { opacity: 0.85; }
+
+    /* ── Main ── */
+    main { max-width: 900px; margin: 2rem auto; padding: 0 1.5rem 4rem; }
+
+    /* ── Status / spinner ── */
+    #status {
+      text-align: center;
+      color: var(--muted);
+      padding: 3rem 0;
+      display: none;
+    }
+    .spinner {
+      display: inline-block;
+      width: 32px; height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--text);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-bottom: 0.75rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error ── */
+    #error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #b91c1c;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      display: none;
+    }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .stats-bar strong { color: var(--text); }
+
+    /* ── Section headings ── */
+    .section-heading {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 2rem 0 0.75rem;
+    }
+
+    /* ── Paired story cards ── */
+    .pair-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    }
+    .pair-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .pair-label { font-weight: 600; font-size: 0.95rem; }
+    .confidence-pill {
+      margin-left: auto;
+      font-size: 0.75rem;
+      background: #f1f5f9;
+      border-radius: 999px;
+      padding: 0.2rem 0.65rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .perspectives { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    @media (max-width: 600px) { .perspectives { grid-template-columns: 1fr; } }
+
+    .perspective {
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      font-size: 0.88rem;
+    }
+    .perspective.left  { background: #eff6ff; border-left: 3px solid var(--left);  }
+    .perspective.right { background: #fff1f2; border-left: 3px solid var(--right); }
+    .perspective-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 0.3rem;
+    }
+    .perspective.left  .perspective-badge { color: var(--left); }
+    .perspective.right .perspective-badge { color: var(--right); }
+    .perspective .title { font-weight: 600; margin-bottom: 0.3rem; line-height: 1.35; }
+    .perspective .summary { color: var(--muted); line-height: 1.5; }
+    .perspective .source { font-size: 0.75rem; color: var(--muted); margin-top: 0.4rem; }
+
+    .agree-disagree {
+      display: flex;
+      gap: 1rem;
+      margin-top: 0.85rem;
+      flex-wrap: wrap;
+    }
+    .agree-block, .disagree-block {
+      flex: 1;
+      min-width: 0;
+      font-size: 0.82rem;
+    }
+    .agree-block strong   { color: #16a34a; }
+    .disagree-block strong { color: #d97706; }
+    .agree-block ul, .disagree-block ul {
+      list-style: none;
+      padding: 0;
+      margin-top: 0.25rem;
+    }
+    .agree-block li::before    { content: "✓ "; color: #16a34a; }
+    .disagree-block li::before { content: "⚡ "; color: #d97706; }
+
+    /* ── Lean badge ── */
+    .lean-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      border-radius: 999px;
+      padding: 0.15rem 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .lean-left        { background: #dbeafe; color: var(--left); }
+    .lean-center-left { background: #e0f2fe; color: #0369a1; }
+    .lean-center      { background: #f1f5f9; color: var(--muted); }
+    .lean-center-right{ background: #fff7ed; color: #c2410c; }
+    .lean-right       { background: #fee2e2; color: var(--right); }
+
+    /* ── Solo story lists ── */
+    .story-list { display: flex; flex-direction: column; gap: 0.5rem; }
+    .story-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      font-size: 0.88rem;
+    }
+    .story-item.left  { border-left: 3px solid var(--left);  }
+    .story-item.right { border-left: 3px solid var(--right); }
+    .story-item .title { font-weight: 500; flex: 1; line-height: 1.4; }
+    .story-item a { color: inherit; text-decoration: none; }
+    .story-item a:hover { text-decoration: underline; }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; color: var(--muted); padding: 2rem 0; font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span>🗞️</span>
+  <h1>Balanced News Digest</h1>
+  <span>Multi-agent AI · Left &amp; Right perspectives</span>
+</header>
+
+<div class="search-wrap">
+  <form class="search-row" id="search-form">
+    <input
+      type="text"
+      id="topic-input"
+      placeholder="Enter a topic — economy, immigration, climate…"
+      value="economy"
+      autocomplete="off"
+    />
+    <label>
+      <input type="checkbox" id="demo-mode" />
+      Demo mode
+    </label>
+    <button type="submit" id="run-btn">Analyze</button>
+  </form>
+</div>
+
+<main>
+  <div id="error"></div>
+  <div id="status">
+    <div class="spinner"></div>
+    <div id="status-text">Fetching and analyzing news…</div>
+  </div>
+  <div id="results"></div>
+</main>
+
+<script>
+  const form       = document.getElementById('search-form');
+  const topicInput = document.getElementById('topic-input');
+  const demoCheck  = document.getElementById('demo-mode');
+  const runBtn     = document.getElementById('run-btn');
+  const statusDiv  = document.getElementById('status');
+  const statusText = document.getElementById('status-text');
+  const resultsDiv = document.getElementById('results');
+  const errorDiv   = document.getElementById('error');
+
+  function leanClass(label) {
+    return 'lean-' + (label || 'center').replace(' ', '-');
+  }
+
+  function leanBadge(label) {
+    return `<span class="lean-badge ${leanClass(label)}">${label || 'center'}</span>`;
+  }
+
+  function renderPaired(pairs) {
+    if (!pairs || pairs.length === 0) return '<p class="empty">No matching stories found across perspectives.</p>';
+    return pairs.map(pair => {
+      const left  = pair.left  || {};
+      const right = pair.right || {};
+      const conf  = (pair.match_confidence * 100).toFixed(0);
+      const agreements    = pair.agreements    || [];
+      const disagreements = pair.disagreements || [];
+
+      const leftLink  = left.link  ? `<a href="${left.link}"  target="_blank" rel="noopener">${escHtml(left.title  || '')}</a>` : escHtml(left.title  || '');
+      const rightLink = right.link ? `<a href="${right.link}" target="_blank" rel="noopener">${escHtml(right.title || '')}</a>` : escHtml(right.title || '');
+
+      const agreeHtml = agreements.length
+        ? `<div class="agree-block"><strong>Agree</strong><ul>${agreements.map(a => `<li>${escHtml(a)}</li>`).join('')}</ul></div>` : '';
+      const disagreeHtml = disagreements.length
+        ? `<div class="disagree-block"><strong>Disagree</strong><ul>${disagreements.map(d => `<li>${escHtml(d)}</li>`).join('')}</ul></div>` : '';
+
+      return `
+        <div class="pair-card">
+          <div class="pair-header">
+            <span class="pair-label">${escHtml(pair.topic_label || 'Matched Story')}</span>
+            <span class="confidence-pill">Match confidence ${conf}%</span>
+          </div>
+          <div class="perspectives">
+            <div class="perspective left">
+              <div class="perspective-badge">Left perspective · ${leanBadge(left.lean_label)}</div>
+              <div class="title">${leftLink}</div>
+              <div class="summary">${escHtml((left.summary_text || '').slice(0, 180))}…</div>
+              <div class="source">${escHtml(left.source_label || '')}</div>
+            </div>
+            <div class="perspective right">
+              <div class="perspective-badge">Right perspective · ${leanBadge(right.lean_label)}</div>
+              <div class="title">${rightLink}</div>
+              <div class="summary">${escHtml((right.summary_text || '').slice(0, 180))}…</div>
+              <div class="source">${escHtml(right.source_label || '')}</div>
+            </div>
+          </div>
+          ${agreeHtml || disagreeHtml ? `<div class="agree-disagree">${agreeHtml}${disagreeHtml}</div>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  function renderSoloList(stories, side) {
+    if (!stories || stories.length === 0) return '<p class="empty">None.</p>';
+    return `<div class="story-list">${stories.map(s => `
+      <div class="story-item ${side}">
+        ${leanBadge(s.lean_label)}
+        <span class="title">${s.link
+          ? `<a href="${s.link}" target="_blank" rel="noopener">${escHtml(s.title || '')}</a>`
+          : escHtml(s.title || '')}
+          <span style="color:var(--muted);font-size:0.75rem;margin-left:0.4rem">${escHtml(s.source_label || '')}</span>
+        </span>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  function renderResults(digest) {
+    const topic    = digest.topic || '(all)';
+    const paired   = digest.paired_stories   || [];
+    const leftOnly = digest.left_only_stories  || [];
+    const rightOnly= digest.right_only_stories || [];
+    const stats    = digest._stats || {};
+
+    const statsHtml = `
+      <div class="stats-bar">
+        <span>Topic: <strong>${escHtml(topic)}</strong></span>
+        <span>Left articles: <strong>${stats.left_count ?? '?'}</strong></span>
+        <span>Right articles: <strong>${stats.right_count ?? '?'}</strong></span>
+        <span>Summarized: <strong>${stats.summaries_count ?? '?'}</strong></span>
+        <span>Pairs matched: <strong>${stats.pairs_count ?? paired.length}</strong></span>
+      </div>`;
+
+    resultsDiv.innerHTML = `
+      ${statsHtml}
+      <div class="section-heading">📰 Paired stories — both perspectives (${paired.length})</div>
+      ${renderPaired(paired)}
+      <div class="section-heading">◀ Left-only stories (${leftOnly.length})</div>
+      ${renderSoloList(leftOnly, 'left')}
+      <div class="section-heading">▶ Right-only stories (${rightOnly.length})</div>
+      ${renderSoloList(rightOnly, 'right')}
+    `;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const topic = topicInput.value.trim();
+    if (!topic) return;
+
+    // Reset UI
+    errorDiv.style.display  = 'none';
+    resultsDiv.innerHTML    = '';
+    statusDiv.style.display = 'block';
+    runBtn.disabled         = true;
+    statusText.textContent  = demoCheck.checked
+      ? 'Running in demo mode (mock LLMs)…'
+      : `Fetching and analyzing news about "${topic}"…`;
+
+    try {
+      const resp = await fetch('/api/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, demo: demoCheck.checked }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+        throw new Error(err.detail || 'Pipeline failed');
+      }
+
+      const digest = await resp.json();
+      renderResults(digest);
+    } catch (err) {
+      errorDiv.textContent = '⚠ ' + err.message;
+      errorDiv.style.display = 'block';
+    } finally {
+      statusDiv.style.display = 'none';
+      runBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

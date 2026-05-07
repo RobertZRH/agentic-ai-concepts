@@ -12,6 +12,8 @@ dependencies = [
     "langchain-openai>=0.2",
     "feedparser>=6.0",
     "python-dotenv>=1.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
 ]
 
 [project.optional-dependencies]
