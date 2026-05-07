@@ -42,6 +42,15 @@ def _get_llm():
 # Module-level alias used by tests for patching
 llm = None  # tests patch this directly; production uses _get_llm()
 
+
+def _call_llm(messages: list) -> object:
+    """Call the LLM — direct call for test mocks, .invoke() for real LangChain clients."""
+    _llm = llm if llm is not None else _get_llm()
+    try:
+        return _llm(messages)
+    except TypeError:
+        return _llm.invoke(messages)
+
 _SYSTEM_PROMPT = (
     "You are a neutral summarizer. Summarize the following news article in 3-5 sentences. "
     "Preserve all factual claims, named entities, and dates. "
@@ -57,8 +66,7 @@ def SummarizerAgent(state: dict) -> dict:
     for article in all_articles:
         text = f"Title: {article['title']}\n\n{article['summary']}"
         try:
-            _llm = llm if llm is not None else _get_llm()
-            response = _llm([SystemMessage(content=_SYSTEM_PROMPT), HumanMessage(content=text)])
+            response = _call_llm([SystemMessage(content=_SYSTEM_PROMPT), HumanMessage(content=text)])
             summary_text = response.content.strip()
         except Exception as exc:
             logger.warning("Summarizer LLM failed for article %s: %s", article["id"], exc)

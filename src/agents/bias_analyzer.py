@@ -42,6 +42,15 @@ def _get_llm():
 
 llm = None  # tests patch this directly; production uses _get_llm()
 
+
+def _call_llm(messages: list) -> object:
+    """Call the LLM — direct call for test mocks, .invoke() for real LangChain clients."""
+    _llm = llm if llm is not None else _get_llm()
+    try:
+        return _llm(messages)
+    except TypeError:
+        return _llm.invoke(messages)
+
 _SYSTEM_PROMPT = (
     "You are a political framing analyst. Given a news summary, respond with a JSON object "
     "containing exactly these fields:\n"
@@ -83,8 +92,7 @@ def BiasAnalyzerAgent(state: dict) -> dict:
 
     for summary in state.get("summaries", []):
         try:
-            _llm = llm if llm is not None else _get_llm()
-            response = _llm([
+            response = _call_llm([
                 SystemMessage(content=_SYSTEM_PROMPT),
                 HumanMessage(content=summary["summary_text"] or summary["original_title"]),
             ])

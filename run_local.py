@@ -165,7 +165,13 @@ if __name__ == "__main__":
     parser.add_argument("--json", action="store_true", help="Output raw JSON instead of formatted digest")
     args = parser.parse_args()
 
-    mode_label = "DEMO (mock LLMs)" if args.demo else "LIVE (Azure OpenAI)"
+    from src.config import LLM_PROVIDER
+    if args.demo:
+        mode_label = "DEMO (mock LLMs)"
+    elif LLM_PROVIDER == "github":
+        mode_label = "LIVE (GitHub Models)"
+    else:
+        mode_label = "LIVE (Azure OpenAI)"
     print(f"\n🚀  Starting pipeline  |  mode: {mode_label}  |  topic: \"{args.topic}\"")
     print("    Fetching RSS feeds and processing articles...\n")
 

@@ -41,6 +41,15 @@ def _get_llm():
 
 llm = None  # tests patch this directly; production uses _get_llm()
 
+
+def _call_llm(messages: list) -> object:
+    """Call the LLM — direct call for test mocks, .invoke() for real LangChain clients."""
+    _llm = llm if llm is not None else _get_llm()
+    try:
+        return _llm(messages)
+    except TypeError:
+        return _llm.invoke(messages)
+
 _AGREEMENT_PROMPT = (
     "You are a news moderation assistant. Given two news summaries on the same topic — "
     "one from a left-leaning source and one from a right-leaning source — identify:\n"
@@ -82,8 +91,7 @@ def compute_embedding_similarity(text_a: str, text_b: str) -> float:
 
 def _extract_agreements(left_summary: str, right_summary: str) -> tuple[list[str], list[str]]:
     try:
-        _llm = llm if llm is not None else _get_llm()
-        response = _llm([
+        response = _call_llm([
             SystemMessage(content=_AGREEMENT_PROMPT),
             HumanMessage(content=f"LEFT:\n{left_summary}\n\nRIGHT:\n{right_summary}"),
         ])
