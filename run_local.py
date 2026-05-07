@@ -88,11 +88,34 @@ def run(topic: str, demo: bool):
 
     if demo:
         from unittest.mock import patch
+
+        def make_article_json(idx):
+            import json as _json
+            return _json.dumps({
+                "headline": f"Demo Balanced Headline {idx+1}",
+                "lead": "This story was covered from both left and right perspectives.",
+                "left_perspective": f"Left-leaning sources emphasise policy impact (demo {idx+1}).",
+                "right_perspective": f"Right-leaning sources stress economic concerns (demo {idx+1}).",
+                "common_ground": ["Both sides agree on the basic facts"],
+                "diverging_points": ["Perspectives differ on policy implications"],
+            })
+
+        article_call_count = [0]
+
+        def demo_llm_article(messages):
+            from unittest.mock import MagicMock
+            idx = article_call_count[0]
+            article_call_count[0] += 1
+            resp = MagicMock()
+            resp.content = make_article_json(idx)
+            return resp
+
         demo_llm = make_demo_llm()
         patches = [
             patch("src.agents.summarizer.llm", side_effect=demo_llm),
             patch("src.agents.bias_analyzer.llm", side_effect=demo_llm),
             patch("src.agents.moderator.llm", side_effect=demo_llm),
+            patch("src.agents.balanced_output.llm", side_effect=demo_llm_article),
         ]
         ctx_managers = [p.__enter__() for p in patches]
         try:
@@ -112,6 +135,7 @@ def pretty_print(digest: dict):
     """Print the balanced digest in a readable format."""
     topic = digest.get("topic") or "(all)"
     generated_at = digest.get("generated_at", "")
+    articles = digest.get("articles", [])
     paired = digest.get("paired_stories", [])
     left_only = digest.get("left_only_stories", [])
     right_only = digest.get("right_only_stories", [])
@@ -121,7 +145,30 @@ def pretty_print(digest: dict):
     print(f"  Generated: {generated_at}")
     print("=" * 70)
 
-    if paired:
+    if articles:
+        print(f"\n📰  BALANCED ARTICLES ({len(articles)} written)\n")
+        for i, art in enumerate(articles, 1):
+            confidence = art.get("match_confidence", 0)
+            print(f"  [{i}] {art.get('headline', '')}  (confidence: {confidence:.2f})")
+            print(f"      {art.get('lead', '')}")
+            print()
+            left_label = f"{art.get('left_source_label', '')} [{art.get('left_lean_label', '')}]"
+            right_label = f"{art.get('right_source_label', '')} [{art.get('right_lean_label', '')}]"
+            print(f"      ◀ {left_label}")
+            print(f"        {art.get('left_perspective', '')}")
+            print()
+            print(f"      ▶ {right_label}")
+            print(f"        {art.get('right_perspective', '')}")
+            print()
+            common = art.get("common_ground", [])
+            diverging = art.get("diverging_points", [])
+            if common:
+                print(f"      ✅ Common ground: {'; '.join(common)}")
+            if diverging:
+                print(f"      ⚡ Diverging:     {'; '.join(diverging)}")
+            print()
+    elif paired:
+        # Fallback: show raw pairs if no articles (shouldn't happen normally)
         print(f"\n📰  PAIRED STORIES ({len(paired)} matched across perspectives)\n")
         for i, pair in enumerate(paired, 1):
             confidence = pair.get("match_confidence", 0)
@@ -133,12 +180,6 @@ def pretty_print(digest: dict):
             print(f"            {left.get('summary_text', '')[:120]}...")
             print(f"      RIGHT [{right.get('lean_label', '')}]  {right.get('title', '')[:70]}")
             print(f"            {right.get('summary_text', '')[:120]}...")
-            agreements = pair.get("agreements", [])
-            disagreements = pair.get("disagreements", [])
-            if agreements:
-                print(f"      ✅ Agree:    {'; '.join(agreements[:2])}")
-            if disagreements:
-                print(f"      ⚡ Disagree: {'; '.join(disagreements[:2])}")
             print()
     else:
         print("\n  (no matched story pairs)\n")

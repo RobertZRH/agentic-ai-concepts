@@ -4,7 +4,7 @@
 `bias_analyzer`
 
 ## description
-Analyzes each article summary to detect political framing, extract key claims, and assign a numeric political lean score. Operates analytically — it identifies framing patterns without endorsing or suppressing any perspective.
+Analyzes each article summary to detect political framing, extract key claims, and assign a numeric political lean score. Operates analytically — it identifies framing patterns without endorsing or suppressing any perspective. The `key_claims` and `framing_notes` it produces are used directly by the downstream `BalancedOutputAgent` to inform the left- and right-perspective sections of each published balanced article.
 
 ## domain
 Political framing analysis, named-entity recognition, claim extraction. Uses GPT-5.5 to detect linguistic signals of political lean (e.g. word choice, framing of issues, which entities are cast as protagonists vs antagonists).

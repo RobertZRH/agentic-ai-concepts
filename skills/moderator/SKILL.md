@@ -4,7 +4,7 @@
 `moderator`
 
 ## description
-Groups related stories from left and right sources into matched pairs by finding articles that cover the same event or topic. Surfaces factual agreements and framing disagreements between the two perspectives. Never suppresses or edits any article.
+Groups related stories from left and right sources into matched pairs by finding articles that cover the same event or topic. Surfaces factual agreements and framing disagreements between the two perspectives. The `agreements`, `disagreements`, and `shared_entities` it produces are the primary inputs for the downstream `BalancedOutputAgent`, which uses them to write balanced published articles. Never suppresses or edits any article.
 
 ## domain
 Story deduplication, named-entity overlap matching, cross-perspective comparison. Uses named-entity overlap as primary matching signal; falls back to embedding cosine similarity for ambiguous matches.

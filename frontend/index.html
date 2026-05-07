@@ -234,6 +234,65 @@
 
     /* ── Empty state ── */
     .empty { text-align: center; color: var(--muted); padding: 2rem 0; font-size: 0.95rem; }
+
+    /* ── Balanced article cards ── */
+    .article-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+    .article-headline {
+      font-size: 1.2rem;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+    .article-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .article-lead {
+      font-size: 0.97rem;
+      line-height: 1.65;
+      color: var(--text);
+      margin-bottom: 1rem;
+      border-left: 3px solid var(--border);
+      padding-left: 0.85rem;
+      font-style: italic;
+    }
+    .article-perspectives {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 600px) { .article-perspectives { grid-template-columns: 1fr; } }
+    .article-perspective {
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+    .article-perspective.left  { background: #eff6ff; border-left: 3px solid var(--left);  }
+    .article-perspective.right { background: #fff1f2; border-left: 3px solid var(--right); }
+    .article-perspective-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 0.4rem;
+    }
+    .article-perspective.left  .article-perspective-label { color: var(--left); }
+    .article-perspective.right .article-perspective-label { color: var(--right); }
+    .article-perspective .perspective-body { color: var(--text); }
   </style>
 </head>
 <body>
@@ -286,6 +345,40 @@
 
   function leanBadge(label) {
     return `<span class="lean-badge ${leanClass(label)}">${label || 'center'}</span>`;
+  }
+
+  function renderArticles(articles) {
+    if (!articles || articles.length === 0) return '';
+    return articles.map(art => {
+      const conf = (art.match_confidence * 100).toFixed(0);
+      const commonHtml = (art.common_ground || []).length
+        ? `<div class="agree-block"><strong>✅ Common ground</strong><ul>${(art.common_ground || []).map(c => `<li>${escHtml(c)}</li>`).join('')}</ul></div>` : '';
+      const divergeHtml = (art.diverging_points || []).length
+        ? `<div class="disagree-block"><strong>⚡ Diverging points</strong><ul>${(art.diverging_points || []).map(d => `<li>${escHtml(d)}</li>`).join('')}</ul></div>` : '';
+
+      return `
+        <div class="article-card">
+          <div class="article-headline">${escHtml(art.headline || art.topic_label || 'Balanced Article')}</div>
+          <div class="article-meta">
+            <span>${leanBadge(art.left_lean_label)} ${escHtml(art.left_source_label || '')}</span>
+            <span style="color:var(--muted)">·</span>
+            <span>${leanBadge(art.right_lean_label)} ${escHtml(art.right_source_label || '')}</span>
+            <span style="margin-left:auto" class="confidence-pill">Match confidence ${conf}%</span>
+          </div>
+          ${art.lead ? `<div class="article-lead">${escHtml(art.lead)}</div>` : ''}
+          <div class="article-perspectives">
+            <div class="article-perspective left">
+              <div class="article-perspective-label">◀ ${escHtml(art.left_source_label || 'Left')} perspective</div>
+              <div class="perspective-body">${escHtml(art.left_perspective || '')}</div>
+            </div>
+            <div class="article-perspective right">
+              <div class="article-perspective-label">▶ ${escHtml(art.right_source_label || 'Right')} perspective</div>
+              <div class="perspective-body">${escHtml(art.right_perspective || '')}</div>
+            </div>
+          </div>
+          ${commonHtml || divergeHtml ? `<div class="agree-disagree">${commonHtml}${divergeHtml}</div>` : ''}
+        </div>`;
+    }).join('');
   }
 
   function renderPaired(pairs) {
@@ -351,11 +444,12 @@
   }
 
   function renderResults(digest) {
-    const topic    = digest.topic || '(all)';
-    const paired   = digest.paired_stories   || [];
-    const leftOnly = digest.left_only_stories  || [];
-    const rightOnly= digest.right_only_stories || [];
-    const stats    = digest._stats || {};
+    const topic     = digest.topic || '(all)';
+    const articles  = digest.articles         || [];
+    const paired    = digest.paired_stories   || [];
+    const leftOnly  = digest.left_only_stories  || [];
+    const rightOnly = digest.right_only_stories || [];
+    const stats     = digest._stats || {};
 
     const statsHtml = `
       <div class="stats-bar">
@@ -363,13 +457,16 @@
         <span>Left articles: <strong>${stats.left_count ?? '?'}</strong></span>
         <span>Right articles: <strong>${stats.right_count ?? '?'}</strong></span>
         <span>Summarized: <strong>${stats.summaries_count ?? '?'}</strong></span>
-        <span>Pairs matched: <strong>${stats.pairs_count ?? paired.length}</strong></span>
+        <span>Balanced articles: <strong>${articles.length}</strong></span>
       </div>`;
+
+    const articlesSection = articles.length
+      ? `<div class="section-heading">📰 Balanced articles — both perspectives (${articles.length})</div>${renderArticles(articles)}`
+      : `<div class="section-heading">📰 Balanced articles — both perspectives (0)</div><p class="empty">No matching stories found across perspectives.</p>`;
 
     resultsDiv.innerHTML = `
       ${statsHtml}
-      <div class="section-heading">📰 Paired stories — both perspectives (${paired.length})</div>
-      ${renderPaired(paired)}
+      ${articlesSection}
       <div class="section-heading">◀ Left-only stories (${leftOnly.length})</div>
       ${renderSoloList(leftOnly, 'left')}
       <div class="section-heading">▶ Right-only stories (${rightOnly.length})</div>

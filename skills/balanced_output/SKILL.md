@@ -4,10 +4,10 @@
 `balanced_output`
 
 ## description
-Formats the matched story pairs and unmatched articles into a structured, human-readable balanced news digest. Presents both perspectives side-by-side with no editorial preference. The output is the final artifact delivered to the consumer.
+Writes a fully-formed **balanced news article** for each matched story pair using an LLM, then assembles the complete balanced digest. Each article presents a neutral headline, a factual lead, and two distinct perspective sections — one for the left-leaning source and one for the right-leaning source — drawn from the upstream summaries, bias scores, and moderator analysis. Unmatched articles are still included in the digest as raw snippets.
 
 ## domain
-Report formatting, structured output generation. Has no analysis or judgment responsibilities — it only formats what the upstream agents produced.
+LLM-powered article synthesis and report assembly. This is the final publishing agent — it produces the human-readable output delivered to the consumer.
 
 ## inputs
 | Field | Type | Description |
@@ -22,63 +22,75 @@ Report formatting, structured output generation. Has no analysis or judgment res
 ## outputs
 | Field | Type | Description |
 |---|---|---|
-| `balanced_digest` | `BalancedDigest` | The final structured digest |
+| `balanced_digest` | `BalancedDigest` | The final structured digest containing written articles |
 
 ## BalancedDigest schema
 ```python
+class BalancedArticle(TypedDict):
+    article_id: str             # uuid
+    headline: str               # neutral headline written by the LLM (max 15 words)
+    topic_label: str            # short topic label from the matched pair
+    lead: str                   # 1-2 sentence factual lead paragraph
+    left_perspective: str       # 2-3 sentences: what left-leaning sources say
+    right_perspective: str      # 2-3 sentences: what right-leaning sources say
+    common_ground: list[str]    # claims both sides agree on
+    diverging_points: list[str] # where the perspectives differ
+    left_source_label: str
+    right_source_label: str
+    left_lean_label: str
+    right_lean_label: str
+    match_confidence: float
+
 class BalancedDigest(TypedDict):
     topic: str | None
-    generated_at: str            # ISO 8601 datetime
-    paired_stories: list[PairedStoryOutput]
+    generated_at: str                    # ISO 8601 datetime
+    articles: list[BalancedArticle]      # LLM-written balanced articles
+    paired_stories: list[PairedStoryOutput]  # raw pair data (kept for API consumers)
     left_only_stories: list[StorySnippet]
     right_only_stories: list[StorySnippet]
-
-class PairedStoryOutput(TypedDict):
-    topic_label: str
-    left: StorySnippet
-    right: StorySnippet
-    agreements: list[str]
-    disagreements: list[str]
-
-class StorySnippet(TypedDict):
-    source_label: str            # e.g. "CNN"
-    lean_label: str              # e.g. "center-left"
-    title: str
-    summary_text: str
-    link: str
-    key_claims: list[str]
 ```
 
+## article_writing_prompt
+System: *"You are a neutral journalist writing a balanced news article that presents both
+left-leaning and right-leaning perspectives on the same story. Return ONLY a JSON object
+with keys: headline, lead, left_perspective, right_perspective, common_ground (list),
+diverging_points (list)."*
+
+Human message includes:
+- `TOPIC`, `LEFT SOURCE` (source_label, lean_label, title, summary_text, key_claims)
+- `RIGHT SOURCE` (same fields)
+- Agreements and disagreements already identified by the ModeratorAgent
+
 ## formatting_rules
-1. `paired_stories` are sorted by `match_confidence` descending
-2. Within each pair, left-source is always listed before right-source (alphabetical by lean)
-3. `left_only_stories` and `right_only_stories` are included in full — not hidden or summarized further
-4. `generated_at` uses `datetime.utcnow().isoformat() + "Z"`
-5. No LLM calls — this agent is pure data transformation
+1. `articles` and `paired_stories` are sorted by `match_confidence` descending
+2. `left_only_stories` and `right_only_stories` are included in full
+3. `generated_at` uses `datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")`
+4. One LLM call is made per matched pair
 
 ## tools_used
-None — pure Python data transformation only. No LLM calls.
+- `llm` — GitHub Models / Azure OpenAI (same lazy `_get_llm()` pattern as other agents)
 
 ## must_never
-- Never omit a StoryPair from `paired_stories`
-- Never omit unmatched articles — they must appear in `left_only_stories` or `right_only_stories`
-- Never editorialize, annotate, or add text not present in upstream agent outputs
-- Never reorder `agreements` or `disagreements` in a way that changes meaning
-- Never make LLM calls
+- Never omit an article for a StoryPair
+- Never omit unmatched articles from `left_only_stories` / `right_only_stories`
+- Never fabricate facts not present in upstream summaries or bias scores
+- Never raise an exception — fall back to snippet data if LLM call fails
 
 ## error_behavior
-If a `Summary` or `BiasScore` lookup by `article_id` fails, use `"[data unavailable]"` for the missing field. Never raise an exception.
+If the LLM call fails for a pair, produce a fallback `BalancedArticle` using the existing
+snippet data (topic_label as headline, summary_text as lead/perspectives, moderator
+agreements/disagreements). If a `Summary` or `BiasScore` lookup fails, use `"[data unavailable]"`.
 
 ## example_invocation
 ```
-Given matched_stories has 4 StoryPairs and 2 unmatched_left and 1 unmatched_right
+Given matched_stories has 1 StoryPair with left_article_id and right_article_id
 When BalancedOutputAgent runs
-Then balanced_digest.paired_stories has 4 entries
- And balanced_digest.left_only_stories has 2 entries
- And balanced_digest.right_only_stories has 1 entry
+Then balanced_digest.articles has 1 entry
+ And balanced_digest.articles[0].headline is non-empty
+ And balanced_digest.articles[0].left_perspective is non-empty
+ And balanced_digest.articles[0].right_perspective is non-empty
  And balanced_digest.generated_at is a valid ISO 8601 string
- And no LLM calls are made
 ```
 
 ## related_spec
-`specs/orchestrator.feature` — Scenario: Full pipeline produces balanced digest
+`specs/orchestrator.feature` — Scenario: BalancedOutputAgent writes a balanced article per story pair

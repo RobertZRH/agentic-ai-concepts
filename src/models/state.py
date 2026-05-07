@@ -60,10 +60,28 @@ class PairedStoryOutput(TypedDict):
     match_confidence: float
 
 
+class BalancedArticle(TypedDict):
+    """A fully written balanced article synthesised from a left+right story pair."""
+    article_id: str
+    headline: str               # Neutral headline written by the LLM
+    topic_label: str            # Short topic label from the matched pair
+    lead: str                   # 1-2 sentence factual lead paragraph
+    left_perspective: str       # 2-3 sentences representing the left-leaning view
+    right_perspective: str      # 2-3 sentences representing the right-leaning view
+    common_ground: list[str]    # Claims both sides share
+    diverging_points: list[str] # Where the perspectives diverge
+    left_source_label: str
+    right_source_label: str
+    left_lean_label: str
+    right_lean_label: str
+    match_confidence: float
+
+
 class BalancedDigest(TypedDict):
     topic: Optional[str]
     generated_at: str
-    paired_stories: list[PairedStoryOutput]
+    articles: list[BalancedArticle]          # Written balanced articles for paired stories
+    paired_stories: list[PairedStoryOutput]  # Raw pair data (kept for API consumers)
     left_only_stories: list[StorySnippet]
     right_only_stories: list[StorySnippet]
 

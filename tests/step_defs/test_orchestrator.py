@@ -129,9 +129,21 @@ def run_full_pipeline(ctx):
         with patch("src.agents.summarizer.llm", side_effect=tracked_llm):
             with patch("src.agents.bias_analyzer.llm", side_effect=tracked_llm):
                 with patch("src.agents.moderator.llm", side_effect=tracked_llm):
-                    graph = build_graph()
-                    initial_state = {"topic": ctx.get("topic")}
-                    final_state = graph.invoke(initial_state)
+                    # balanced_output now uses an LLM; provide a mock that returns article JSON
+                    article_json = json.dumps({
+                        "headline": "Test Balanced Headline",
+                        "lead": "A factual lead sentence.",
+                        "left_perspective": "Left-leaning sources emphasise impact.",
+                        "right_perspective": "Right-leaning sources stress economic concerns.",
+                        "common_ground": ["both agree on X"],
+                        "diverging_points": ["differ on Y"],
+                    })
+                    article_resp = MagicMock()
+                    article_resp.content = article_json
+                    with patch("src.agents.balanced_output.llm", return_value=article_resp):
+                        graph = build_graph()
+                        initial_state = {"topic": ctx.get("topic")}
+                        final_state = graph.invoke(initial_state)
 
     ctx["final_state"] = final_state
     ctx["balanced_digest"] = final_state.get("balanced_digest")
@@ -142,16 +154,36 @@ def run_full_pipeline(ctx):
 @when("the BalancedOutputAgent runs", target_fixture="ctx")
 def run_balanced_output(ctx):
     from src.agents.balanced_output import BalancedOutputAgent
-    call_count = [0]
 
-    def tracking_llm(messages):
-        call_count[0] += 1
-        raise AssertionError("BalancedOutputAgent must not call the LLM")
+    article_json = json.dumps({
+        "headline": "Test Balanced Headline",
+        "lead": "A factual lead sentence about the story.",
+        "left_perspective": "Left-leaning sources emphasise policy impact.",
+        "right_perspective": "Right-leaning sources stress economic concerns.",
+        "common_ground": ["both agree on X"],
+        "diverging_points": ["differ on Y"],
+    })
+    article_resp = MagicMock()
+    article_resp.content = article_json
 
-    with patch("src.agents.balanced_output.llm", side_effect=tracking_llm):
+    # Provide at least one matched pair so the agent can write an article
+    matched_stories = ctx.get("matched_stories") or [
+        {
+            "pair_id": "pair-1",
+            "topic_label": "Test Topic",
+            "left_article_id": MOCK_SUMMARIES_LEFT[0]["article_id"],
+            "right_article_id": MOCK_SUMMARIES_RIGHT[0]["article_id"],
+            "shared_entities": ["entity"],
+            "agreements": ["both agree on X"],
+            "disagreements": ["differ on Y"],
+            "match_confidence": 0.85,
+        }
+    ]
+
+    with patch("src.agents.balanced_output.llm", return_value=article_resp):
         state = {
             "topic": ctx.get("topic"),
-            "matched_stories": ctx.get("matched_stories", []),
+            "matched_stories": matched_stories,
             "unmatched_left": ctx.get("unmatched_left", []),
             "unmatched_right": ctx.get("unmatched_right", []),
             "summaries": MOCK_SUMMARIES_LEFT + MOCK_SUMMARIES_RIGHT,
@@ -159,7 +191,6 @@ def run_balanced_output(ctx):
         }
         result = BalancedOutputAgent(state)
     ctx["balanced_digest"] = result["balanced_digest"]
-    ctx["llm_calls_during_output"] = call_count[0]
     return ctx
 
 
@@ -234,9 +265,33 @@ def pairs_sorted(ctx, expected):
     assert confidences == sorted(confidences, reverse=True)
 
 
-@then("no LLM API calls are recorded during BalancedOutputAgent execution")
-def no_llm_in_output(ctx):
-    assert ctx.get("llm_calls_during_output", 0) == 0
+@then("balanced_digest.articles is a list")
+def digest_articles_list(ctx):
+    assert isinstance(ctx["balanced_digest"]["articles"], list)
+
+
+@then("each article in balanced_digest.articles has a non-empty headline")
+def articles_have_headline(ctx):
+    for article in ctx["balanced_digest"]["articles"]:
+        assert article.get("headline"), f"Missing headline in {article}"
+
+
+@then("each article in balanced_digest.articles has a non-empty lead")
+def articles_have_lead(ctx):
+    for article in ctx["balanced_digest"]["articles"]:
+        assert article.get("lead"), f"Missing lead in {article}"
+
+
+@then("each article in balanced_digest.articles has a non-empty left_perspective")
+def articles_have_left_perspective(ctx):
+    for article in ctx["balanced_digest"]["articles"]:
+        assert article.get("left_perspective"), f"Missing left_perspective in {article}"
+
+
+@then("each article in balanced_digest.articles has a non-empty right_perspective")
+def articles_have_right_perspective(ctx):
+    for article in ctx["balanced_digest"]["articles"]:
+        assert article.get("right_perspective"), f"Missing right_perspective in {article}"
 
 
 @then("balanced_digest.paired_stories is an empty list")

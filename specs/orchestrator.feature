@@ -36,10 +36,14 @@ Feature: End-to-end orchestration and balanced digest output
     When the full news pipeline runs
     Then balanced_digest.paired_stories are ordered [0.9, 0.6, 0.3]
 
-  Scenario: No LLM calls are made in the BalancedOutputAgent
+  Scenario: BalancedOutputAgent writes a balanced article per story pair
     Given the pipeline has completed Moderator stage
     When the BalancedOutputAgent runs
-    Then no LLM API calls are recorded during BalancedOutputAgent execution
+    Then balanced_digest.articles is a list
+    And each article in balanced_digest.articles has a non-empty headline
+    And each article in balanced_digest.articles has a non-empty lead
+    And each article in balanced_digest.articles has a non-empty left_perspective
+    And each article in balanced_digest.articles has a non-empty right_perspective
 
   Scenario: Pipeline handles all feeds being unreachable
     Given all RSS feeds return connection errors
